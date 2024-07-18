@@ -1,0 +1,11 @@
+# Enable DevTools
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+    # Specify additional paths to watch for changes (comma-separated)
+    additional-paths: src/main/java,src/main/resources
+
+    # Specify file patterns that trigger a restart (comma-separated)
+    trigger-file: '**/*.class'
