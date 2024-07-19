@@ -1,5 +1,9 @@
 package com.paccy.oauthserver.config;
 
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -13,17 +17,23 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPrivateCrtKey;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
 
 @Configuration(
-        proxyBeanMethods = false
+        proxyBeanMethods = true
 )
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -62,4 +72,44 @@ public class SecurityConfig {
         return new InMemoryRegisteredClientRepository(registeredClient);
     }
 
+//    Configuration for public-private keys
+
+    @Bean
+
+    public JWKSource<SecurityContext> jwkSource(){
+        RSAKey rsaKey= generateRsa();
+        JWKSet jwkSet= new JWKSet(rsaKey);
+        return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
+    }
+
+
+    private static RSAKey generateRsa(){
+        KeyPair keyPair=generateRsaKey();
+        RSAPublicKey publicKey= (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey= (RSAPrivateCrtKey) keyPair.getPrivate();
+        return  new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(UUID.randomUUID().toString())
+                .build();
+
+    }
+
+    private static KeyPair generateRsaKey() {
+        KeyPair keyPair;
+        try {
+            KeyPairGenerator keyPairGenerator=KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            keyPair=keyPairGenerator.generateKeyPair();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return  keyPair;
+    }
+
+    @Bean
+    public AuthorizationServerSettings authorizationServerSettings (){
+        return authorizationServerSettings().builder()
+                .issuer("http://auth-server:8001")
+                .build();
+    }
 }
